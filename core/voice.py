@@ -1,30 +1,96 @@
 import speech_recognition as sr
+import pyttsx3
+import threading
+from core.openai_api import get_ai_response
 
-# Set this to a specific mic index if needed (Run mic check script if unsure)
-MICROPHONE_INDEX = None  # Change this if default mic is not working
+# Initialize text-to-speech engine
+engine = pyttsx3.init()
+engine.setProperty('rate', 150)  # Adjust speech speed
 
-def recognize_speech():
-    """Captures audio and converts it to text using SpeechRecognition with noise filtering."""
+# Set Male English (US) Voice - Microsoft David
+selected_voice = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Speech\\Voices\\Tokens\\TTS_MS_EN-US_DAVID_11.0"
+engine.setProperty('voice', selected_voice)
+print(f"✅ Using voice: Microsoft David (US Male)")
+
+# Global flag to stop speaking
+stop_speaking = False
+
+def speak(text: str):
+    """
+    Convert text to speech and play it. Stops if interrupted.
+    """
+    global stop_speaking
+
+    if text:
+        stop_speaking = False  # Reset stop flag
+        def run():
+            engine.say(text)
+            engine.runAndWait()
+        
+        speech_thread = threading.Thread(target=run)
+        speech_thread.start()
+
+        # Listen while speaking to detect "Frosty" or "Exit"
+        while speech_thread.is_alive():
+            user_input = listen(interrupt_mode=True)
+            if user_input in ["frosty", "exit", "stop"]:
+                print("❌ Speech interrupted!")
+                stop_speaking = True
+                engine.stop()
+                return  # Stop speaking and return to listening
+
+def listen(interrupt_mode=False) -> str:
+    """
+    Capture audio from the user and convert it to text.
+    If in interrupt mode, return immediately upon detection.
+    """
     recognizer = sr.Recognizer()
-
-    # Use a specific microphone if the default is not working
-    mic_source = sr.Microphone(device_index=MICROPHONE_INDEX) if MICROPHONE_INDEX is not None else sr.Microphone()
-
-    with mic_source as source:
-        # Noise reduction setup
-        recognizer.adjust_for_ambient_noise(source, duration=2.0)  # Longer calibration for better filtering
-        recognizer.energy_threshold = 400  # Filters out unwanted background noise
-        recognizer.dynamic_energy_threshold = True  # Auto-adjusts to real-time noise
-        recognizer.pause_threshold = 0.8  # Ensures quick response time without cutting off speech
+    with sr.Microphone() as source:
+        recognizer.adjust_for_ambient_noise(source, duration=1)  # Noise calibration
+        print("🎤 Listening...")
 
         try:
-            # Listen for speech with timeout
-            audio = recognizer.listen(source, timeout=6)  
-            return recognizer.recognize_google(audio).lower()  # Convert speech to text
-        
-        except sr.WaitTimeoutError:
-            return None  # No speech detected
+            audio = recognizer.listen(source, timeout=5)
+            user_input = recognizer.recognize_google(audio).lower()
+            print(f"🔍 Heard: {user_input}")
+
+            if interrupt_mode and user_input in ["frosty", "exit", "stop"]:
+                return user_input  # Stop immediately
+            return user_input
+
         except sr.UnknownValueError:
-            return None  # Speech not clear
+            return ""
         except sr.RequestError:
-            return None  # API issue or no internet
+            return "Error: Could not reach speech recognition service."
+        except sr.WaitTimeoutError:
+            return ""
+
+def main():
+    """
+    Main loop for the AI assistant using 'Frosty' as hotword.
+    """
+    print("❄️ Frosty is ready. Say 'Frosty' to activate.")
+    speak("Hello! Say 'Frosty' to activate me.")
+
+    while True:
+        user_input = listen()
+        print(f"🔍 Heard: {user_input}")
+
+        if "frosty" in user_input:
+            speak("How can I assist you?")
+
+            while True:
+                command = listen()
+                print(f"🎤 You said: {command}")
+
+                if command in ["exit", "quit", "stop"]:
+                    speak("Goodbye! Have a great day!")
+                    print("❌ Exiting...")
+                    return
+
+                response = get_ai_response(command)
+                print(f"🤖 AI Response: {response}")
+                speak(response)  # Now interruptible!
+
+if __name__ == "__main__":
+    main()
