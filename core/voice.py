@@ -4,6 +4,7 @@ import threading
 import sys
 from PyQt6.QtWidgets import QApplication
 from core.openai_api import get_ai_response
+from core.weather_api import get_weather  # Import the weather function
 
 # Initialize text-to-speech engine
 engine = pyttsx3.init()
@@ -14,15 +15,13 @@ selected_voice = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Speech\\Voices\\Token
 engine.setProperty('voice', selected_voice)
 print(f"✅ Using voice: Microsoft David (US Male)")
 
-# Global flag for exiting
-exit_flag = False
+# Global flag to exit assistant
+exit_flag = False  
 
 def speak(text: str):
     """
     Convert text to speech and play it.
     """
-    global exit_flag
-
     if text:
         def run():
             engine.say(text)
@@ -35,6 +34,7 @@ def speak(text: str):
 def listen() -> str:
     """
     Capture audio from the user and convert it to text.
+    Detects weather queries and calls the weather function directly.
     """
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
@@ -48,6 +48,11 @@ def listen() -> str:
             user_input = recognizer.recognize_google(audio).lower()
             print(f"🔍 Heard: {user_input}")
 
+            # **Directly Handle Weather Queries Here**
+            if "weather" in user_input:
+                process_weather_query(user_input)  # Call weather function immediately
+                return ""  # Stop further processing
+
             return user_input
 
         except sr.UnknownValueError:
@@ -56,6 +61,42 @@ def listen() -> str:
             return "Error: Could not reach speech recognition service."
         except sr.WaitTimeoutError:
             return ""
+
+def process_weather_query(command: str):
+    """
+    Extracts city from command, cleans unnecessary words, and fetches weather.
+    """
+    print("🛠 DEBUG: Processing weather query!")  # Debug message
+    city = ""
+
+    # Extract city name (everything after "in")
+    words = command.split()
+    if "in" in words:
+        city_index = words.index("in") + 1
+        if city_index < len(words):  # Ensure city exists after "in"
+            city = " ".join(words[city_index:])
+
+    # **Clean city name (remove words like "today", "tomorrow")**
+    words_to_remove = ["today", "tomorrow", "right now", "currently", "now"]
+    city = " ".join([word for word in city.split() if word not in words_to_remove])
+
+    # If no city was detected, ask the user for a city name
+    if not city or len(city) < 2:  # Prevents invalid city names
+        speak("Which city would you like the weather for?")
+        city = listen().strip()  # Listen again for a city name
+        print(f"🛠 DEBUG: User provided city -> {city}")
+
+    # If still no city is detected, return an error
+    if not city or len(city) < 2:
+        speak("I still didn't get a city name. Please try again.")
+        return  # **Stops further AI processing after weather response**
+
+    print(f"🌍 DEBUG: Fetching weather for -> {city}")  # Debug message
+    weather_response = get_weather(city)  # Fetch real-time weather data
+    print(f"🤖 DEBUG: Weather API Response -> {weather_response}")  # Debug message
+    speak(weather_response)  # Speak the actual weather report
+
+    return  # **Ensures AI does NOT process any further after weather query**
 
 def main():
     """
@@ -78,13 +119,15 @@ def handle_commands():
 
     while not exit_flag:
         command = listen()
+
         if command in ["exit", "quit", "stop"]:
             speak("Goodbye! Have a great day!")
             exit_flag = True
             QApplication.quit()  # Properly exit the application
             return
 
-        if command:  # Ensure command is not empty
+        # **Process OpenAI commands ONLY if it's NOT a weather query**
+        if "weather" not in command:  # Ensures OpenAI API is NEVER called after weather
+            print("🛠 DEBUG: Sending command to OpenAI")  # Debug message
             response = get_ai_response(command)
-            print(f"🤖 Frosty: {response}")
             speak(response)  # AI keeps listening after response
