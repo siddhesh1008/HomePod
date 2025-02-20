@@ -1,6 +1,8 @@
 import speech_recognition as sr
 import pyttsx3
 import threading
+import sys
+from PyQt6.QtWidgets import QApplication
 from core.openai_api import get_ai_response
 
 # Initialize text-to-speech engine
@@ -12,50 +14,40 @@ selected_voice = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Speech\\Voices\\Token
 engine.setProperty('voice', selected_voice)
 print(f"✅ Using voice: Microsoft David (US Male)")
 
-# Global flag to stop speaking
-stop_speaking = False
+# Global flag for exiting
+exit_flag = False
 
 def speak(text: str):
     """
-    Convert text to speech and play it. Stops if interrupted.
+    Convert text to speech and play it.
     """
-    global stop_speaking
+    global exit_flag
 
     if text:
-        stop_speaking = False  # Reset stop flag
         def run():
             engine.say(text)
             engine.runAndWait()
-        
+
         speech_thread = threading.Thread(target=run)
         speech_thread.start()
+        speech_thread.join()  # Ensure speech finishes before next action
 
-        # Listen while speaking to detect "Frosty" or "Exit"
-        while speech_thread.is_alive():
-            user_input = listen(interrupt_mode=True)
-            if user_input in ["frosty", "exit", "stop"]:
-                print("❌ Speech interrupted!")
-                stop_speaking = True
-                engine.stop()
-                return  # Stop speaking and return to listening
-
-def listen(interrupt_mode=False) -> str:
+def listen() -> str:
     """
     Capture audio from the user and convert it to text.
-    If in interrupt mode, return immediately upon detection.
     """
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
-        recognizer.adjust_for_ambient_noise(source, duration=1)  # Noise calibration
+        recognizer.adjust_for_ambient_noise(source, duration=0.5)  # Faster noise calibration
+        recognizer.energy_threshold = 300  # Reduce background noise detection
+        recognizer.dynamic_energy_threshold = True  # Auto-adjust sensitivity
         print("🎤 Listening...")
 
         try:
-            audio = recognizer.listen(source, timeout=5)
+            audio = recognizer.listen(source, timeout=3)  # Short timeout for quick detection
             user_input = recognizer.recognize_google(audio).lower()
             print(f"🔍 Heard: {user_input}")
 
-            if interrupt_mode and user_input in ["frosty", "exit", "stop"]:
-                return user_input  # Stop immediately
             return user_input
 
         except sr.UnknownValueError:
@@ -67,30 +59,32 @@ def listen(interrupt_mode=False) -> str:
 
 def main():
     """
-    Main loop for the AI assistant using 'Frosty' as hotword.
+    AI assistant listens for 'Frosty' and stays in conversation mode.
     """
-    print("❄️ Frosty is ready. Say 'Frosty' to activate.")
+    global exit_flag
+
+    print("❄️ Frosty is always ready. Say 'Frosty' to wake me.")
     speak("Hello! Say 'Frosty' to activate me.")
 
-    while True:
-        user_input = listen()
-        print(f"🔍 Heard: {user_input}")
-
+    while not exit_flag:
+        user_input = listen()  # Always listen
         if "frosty" in user_input:
             speak("How can I assist you?")
+            handle_commands()  # Enter conversation mode
 
-            while True:
-                command = listen()
-                print(f"🎤 You said: {command}")
+def handle_commands():
+    """Listens for multiple AI commands after wake word is detected."""
+    global exit_flag
 
-                if command in ["exit", "quit", "stop"]:
-                    speak("Goodbye! Have a great day!")
-                    print("❌ Exiting...")
-                    return
+    while not exit_flag:
+        command = listen()
+        if command in ["exit", "quit", "stop"]:
+            speak("Goodbye! Have a great day!")
+            exit_flag = True
+            QApplication.quit()  # Properly exit the application
+            return
 
-                response = get_ai_response(command)
-                print(f"🤖 AI Response: {response}")
-                speak(response)  # Now interruptible!
-
-if __name__ == "__main__":
-    main()
+        if command:  # Ensure command is not empty
+            response = get_ai_response(command)
+            print(f"🤖 Frosty: {response}")
+            speak(response)  # AI keeps listening after response
