@@ -1,4 +1,4 @@
-# 🇨🇿 Frosty - AI Voice Assistant (JARVIS)  
+# 🇨🇿 Frosty - AI Voice Assistant  
 
 
 Frosty is a **voice-activated AI assistant** inspired by **JARVIS** from Iron Man. It is designed to run on a **circular touchscreen interface** and supports **voice commands for AI responses, weather updates, music playback (Spotify), system monitoring, and more**.  
@@ -18,7 +18,7 @@ Frosty is a **voice-activated AI assistant** inspired by **JARVIS** from Iron Ma
 
 ## **📂 Project Structure**
 ```
-jarvis_ai_assistant/
+ai_assistant/
  assets/              # Images, icons, and backgrounds
  ui/                  # UI components (PyQt6)
    ├─ main_window.py   # Main UI window (circular display)
@@ -52,8 +52,8 @@ Make sure you have the following installed:
 
 ### **2️⃣ Clone the Repository**
 ```bash
-git clone https://github.com/yourusername/jarvis_ai_assistant.git
-cd jarvis_ai_assistant
+git clone https://github.com/siddhesh1008/HomePod.git
+cd HomePod
 ```
 
 ---
