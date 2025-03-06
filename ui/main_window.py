@@ -2,7 +2,8 @@ import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel
 from PyQt6.QtGui import QFont, QMovie, QRegion
 from PyQt6.QtCore import Qt, QTimer, QTime, QThread
-from core.voice import speak, listen  # Import voice functions
+from core.voice import speak, listen
+from core.spotify_api import play_music, pause_music, next_track, previous_track, play_specific_song  # Import Spotify controls
 
 class HotwordDetectionThread(QThread):
     """Continuously listens for 'Frosty' in a separate thread."""
@@ -26,8 +27,23 @@ class HotwordDetectionThread(QThread):
                 print("❌ Exiting...")
                 return
 
-            from core.openai_api import get_ai_response
-            response = get_ai_response(user_input)
+            # Spotify Commands
+            if "play music" in user_input:
+                response = play_music()
+            elif "pause music" in user_input:
+                response = pause_music()
+            elif "next song" in user_input or "skip" in user_input:
+                response = next_track()
+            elif "previous song" in user_input:
+                response = previous_track()
+            elif "play" in user_input:
+                song_name = user_input.replace("play", "").strip()
+                response = play_specific_song(song_name)
+            else:
+                # Default to AI response
+                from core.openai_api import get_ai_response
+                response = get_ai_response(user_input)
+
             print(f"🤖 Frosty: {response}")
             speak(response)
 
@@ -48,11 +64,11 @@ class CircularUI(QMainWindow):
         # 🎥 Set Animated GIF Background
         self.bg_label = QLabel(self)
         self.bg_label.setGeometry(0, 0, 1080, 1080)
-        self.bg_movie = QMovie("assets/background.gif")  # Ensure this file exists!
-        self.bg_movie.setScaledSize(self.bg_label.size())  # Scale properly
+        self.bg_movie = QMovie("assets/background.gif")
+        self.bg_movie.setScaledSize(self.bg_label.size())
         self.bg_label.setMovie(self.bg_movie)
-        self.bg_movie.start()  # Start animation
-        self.bg_label.lower()  # Ensure it's in the background
+        self.bg_movie.start()
+        self.bg_label.lower()
         self.bg_label.show()
         self.bg_label.repaint()
 
@@ -83,4 +99,4 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = CircularUI()
     window.show()
-    sys.exit(app.exec())  # Keeps UI Running
+    sys.exit(app.exec())
