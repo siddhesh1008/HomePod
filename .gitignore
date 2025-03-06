@@ -1,3 +1,7 @@
 /.env
 /Screenshot 2025-02-14 122239.png
 /venv
+core/__pycache__/openai_api.cpython-312.pyc
+core/__pycache__/voice.cpython-312.pyc
+core/__pycache__/weather_api.cpython-312.pyc
+ui/__pycache__/main_window.cpython-312.pyc
