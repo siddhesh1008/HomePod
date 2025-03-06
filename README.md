@@ -1,4 +1,4 @@
-# de Frosty - AI Voice Assistant  
+# Frosty - AI Voice Assistant  
 
 
 Frosty is a **voice-activated AI assistant** inspired by **JARVIS** from Iron Man. It is designed to run on a **circular touchscreen interface** and supports **voice commands for AI responses, weather updates, music playback (Spotify), system monitoring, and more**.  

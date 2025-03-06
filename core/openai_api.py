@@ -12,7 +12,10 @@ def get_ai_response(user_input):
         client = openai.OpenAI()  # Create OpenAI client (New API format)
         response = client.chat.completions.create(
             model="gpt-4",  # Change model if needed
-            messages=[{"role": "user", "content": user_input}]
+            messages=[
+                {"role": "system", "content": "You are Frosty, a friendly AI assistant that helps users with their queries. Be concise and professional."},
+                {"role": "user", "content": user_input}
+            ]
         )
         return response.choices[0].message.content  # Adjusted response format
     except Exception as e:

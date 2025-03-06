@@ -66,7 +66,6 @@ def process_weather_query(command: str):
     """
     Extracts city from command, cleans unnecessary words, and fetches weather.
     """
-    print("🛠 DEBUG: Processing weather query!")  # Debug message
     city = ""
 
     # Extract city name (everything after "in")
@@ -84,16 +83,14 @@ def process_weather_query(command: str):
     if not city or len(city) < 2:  # Prevents invalid city names
         speak("Which city would you like the weather for?")
         city = listen().strip()  # Listen again for a city name
-        print(f"🛠 DEBUG: User provided city -> {city}")
 
     # If still no city is detected, return an error
     if not city or len(city) < 2:
         speak("I still didn't get a city name. Please try again.")
         return  # **Stops further AI processing after weather response**
 
-    print(f"🌍 DEBUG: Fetching weather for -> {city}")  # Debug message
     weather_response = get_weather(city)  # Fetch real-time weather data
-    print(f"🤖 DEBUG: Weather API Response -> {weather_response}")  # Debug message
+    print(f"🤖 Weather API Response -> {weather_response}")  #Message
     speak(weather_response)  # Speak the actual weather report
 
     return  # **Ensures AI does NOT process any further after weather query**
@@ -128,6 +125,5 @@ def handle_commands():
 
         # **Process OpenAI commands ONLY if it's NOT a weather query**
         if "weather" not in command:  # Ensures OpenAI API is NEVER called after weather
-            print("🛠 DEBUG: Sending command to OpenAI")  # Debug message
             response = get_ai_response(command)
             speak(response)  # AI keeps listening after response
