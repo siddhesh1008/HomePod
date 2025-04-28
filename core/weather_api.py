@@ -5,11 +5,13 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Get API key from .env file
+# Get API key and city from .env file
 API_KEY = os.getenv("OPENWEATHER_API_KEY")
+CITY = os.getenv("CITY", "Berlin")  # Default to Berlin if not set
+COUNTRY_CODE = os.getenv("COUNTRY_CODE", "DE")  # Default to Germany
 BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
 
-def get_weather(city: str):
+def get_weather(city: str = CITY):
     """
     Fetch current weather for a given city.
 
@@ -23,7 +25,7 @@ def get_weather(city: str):
         return "Weather service is unavailable. API key is missing."
 
     params = {
-        "q": city,
+        "q": f"{city},{COUNTRY_CODE}",
         "appid": API_KEY,
         "units": "metric",  # Fetch temperature in Celsius
     }
@@ -41,8 +43,11 @@ def get_weather(city: str):
         wind_speed = data["wind"]["speed"]
 
         weather_report = (
-            f"The weather in {city} is {weather_desc} with a temperature of {temperature}°C, "
-            f"humidity at {humidity}%, and wind speed of {wind_speed} m/s."
+            f"🌍 Weather in {city}:\n"
+            f"🌡 Temp: {temperature}°C\n"
+            f"🌦 Condition: {weather_desc}\n"
+            f"💧 Humidity: {humidity}%\n"
+            f"🌬 Wind Speed: {wind_speed} m/s"
         )
 
         return weather_report

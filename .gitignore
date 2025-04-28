@@ -7,3 +7,5 @@ core/__pycache__/weather_api.cpython-312.pyc
 ui/__pycache__/main_window.cpython-312.pyc
 .cache
 core/__pycache__/spotify_api.cpython-312.pyc
+.spotify_cache
+integrations/__pycache__/vinyl_player.cpython-312.pyc

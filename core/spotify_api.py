@@ -4,104 +4,146 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
 
-# Load API credentials from .env file
+# Load environment variables
 load_dotenv()
 
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-    client_id=os.getenv("SPOTIPY_CLIENT_ID"),
-    client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
-    redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
-    scope="user-modify-playback-state user-read-playback-state"
-))
+SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
+SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
+SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
 
-def get_active_device():
-    """Returns the first active Spotify device or None."""
-    devices = sp.devices()
-    device_list = devices.get("devices", [])
+# Spotify scope
+SCOPE = "user-read-playback-state user-modify-playback-state"
 
-    if not device_list:
-        return None
+# Global Spotify client
+sp = None
 
-    return device_list[0]["id"]  # Return the first active device ID
+def ensure_spotify_client():
+    """Ensure Spotify client is authenticated and refreshed."""
+    global sp
+    if sp is None:
+        print("🔄 Initializing Spotify Client...")
+        sp_oauth = SpotifyOAuth(
+            client_id=SPOTIPY_CLIENT_ID,
+            client_secret=SPOTIPY_CLIENT_SECRET,
+            redirect_uri=SPOTIPY_REDIRECT_URI,
+            scope=SCOPE,
+            cache_path=".spotify_cache",
+            open_browser=True
+        )
 
-def open_spotify():
-    """Opens Spotify app if not running (Windows/Linux)."""
-    if os.name == "nt":  # Windows
-        os.system("start spotify")
-    else:  # Linux/Mac
-        os.system("spotify &")
+        token_info = sp_oauth.get_cached_token()
+        if not token_info:
+            token_info = sp_oauth.get_access_token(as_dict=True)
+
+        sp = spotipy.Spotify(auth=token_info['access_token'])
+        sp.token_info = token_info
+        sp.sp_oauth = sp_oauth
+
+    # Refresh token if needed
+    if sp.token_info['expires_at'] - int(time.time()) < 60:
+        print("🔄 Refreshing Spotify token...")
+        sp.token_info = sp.sp_oauth.refresh_access_token(sp.token_info['refresh_token'])
+        sp._auth = sp.token_info['access_token']
+
+def get_spotify_client():
+    """Returns a valid Spotify client."""
+    ensure_spotify_client()
+    return sp
+
+def find_local_device(sp_client):
+    """Find and return this PC's Spotify device."""
+    devices = sp_client.devices()
+
+    for device in devices['devices']:
+        if device['type'] == 'Computer':
+            print(f"✅ Found local device: {device['name']}")
+            return device['id']
+
+    return None
 
 def play_music():
-    """Ensure Spotify is running and start playback."""
+    """Play music on this PC device only."""
     try:
-        device_id = get_active_device()
+        sp_client = get_spotify_client()
+        device_id = find_local_device(sp_client)
 
         if not device_id:
-            open_spotify()
-            time.sleep(5)  # Wait for Spotify to fully start (Adjust time if needed)
-            
-            # Try getting the device again after opening Spotify
-            device_id = get_active_device()
-            if not device_id:
-                return "Spotify opened, but no active device found. Please play a song manually."
+            return "❌ Spotify is not active on your PC. Please open Spotify app."
 
-        sp.start_playback(device_id=device_id)
-        return "Playing music on Spotify."
+        try:
+            sp_client.start_playback(device_id=device_id)
+            return "🎵 Playing music on Spotify."
+        except spotipy.exceptions.SpotifyException as e:
+            if e.http_status == 403:
+                print("🔄 Spotify 403 Restriction: Trying to play a default track...")
+
+                # Play a fallback default track
+                fallback_track_uri = "spotify:track:3n3Ppam7vgaVa1iaRUc9Lp"  # Example: Eminem - Without Me
+                sp_client.start_playback(device_id=device_id, uris=[fallback_track_uri])
+                return "🎵 Playback started with default track."
+            else:
+                raise e
+
     except Exception as e:
         return f"Error: {e}"
 
 def pause_music():
-    """Pause Spotify playback."""
     try:
-        device_id = get_active_device()
-        if not device_id:
-            return "No active Spotify device found. Please open Spotify and play a song manually."
+        sp_client = get_spotify_client()
+        device_id = find_local_device(sp_client)
 
-        sp.pause_playback(device_id=device_id)
-        return "Music paused."
+        if not device_id:
+            return "❌ No PC Spotify device found."
+
+        sp_client.pause_playback(device_id=device_id)
+        return "⏸ Music paused."
+
     except Exception as e:
         return f"Error: {e}"
 
 def next_track():
-    """Skip to the next song."""
     try:
-        device_id = get_active_device()
-        if not device_id:
-            return "No active Spotify device found. Please open Spotify and play a song manually."
+        sp_client = get_spotify_client()
+        device_id = find_local_device(sp_client)
 
-        sp.next_track(device_id=device_id)
-        return "Skipped to the next track."
+        if not device_id:
+            return "❌ No PC Spotify device found."
+
+        sp_client.next_track(device_id=device_id)
+        return "⏭ Skipped to next track."
+
     except Exception as e:
         return f"Error: {e}"
 
 def previous_track():
-    """Go back to the previous song."""
     try:
-        device_id = get_active_device()
-        if not device_id:
-            return "No active Spotify device found. Please open Spotify and play a song manually."
+        sp_client = get_spotify_client()
+        device_id = find_local_device(sp_client)
 
-        sp.previous_track(device_id=device_id)
-        return "Playing previous track."
+        if not device_id:
+            return "❌ No PC Spotify device found."
+
+        sp_client.previous_track(device_id=device_id)
+        return "⏮ Playing previous track."
+
     except Exception as e:
         return f"Error: {e}"
 
 def play_specific_song(song_name):
-    """Search and play a specific song."""
     try:
-        device_id = get_active_device()
-        if not device_id:
-            open_spotify()
-            time.sleep(5)  # Give time for Spotify to open
-            device_id = get_active_device()
-            if not device_id:
-                return "Spotify opened, but no active device found. Please play a song manually."
+        sp_client = get_spotify_client()
+        device_id = find_local_device(sp_client)
 
-        results = sp.search(q=song_name, limit=1)
-        if results["tracks"]["items"]:
-            track_uri = results["tracks"]["items"][0]["uri"]
-            sp.start_playback(device_id=device_id, uris=[track_uri])
-            return f"Playing {song_name} on Spotify."
-        return "Song not found."
+        if not device_id:
+            return "❌ No PC Spotify device found."
+
+        results = sp_client.search(q=song_name, limit=1)
+        if results['tracks']['items']:
+            track_uri = results['tracks']['items'][0]['uri']
+            sp_client.start_playback(device_id=device_id, uris=[track_uri])
+            return f"🎶 Playing {song_name} on Spotify."
+
+        return "❌ Song not found."
+
     except Exception as e:
         return f"Error: {e}"
