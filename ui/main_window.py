@@ -75,28 +75,37 @@ class VinylScreen(QWidget):
         # Solid Black Background
         self.setStyleSheet("background-color: black;")
 
-        # Load Vinyl Image
-        self.original_vinyl = QPixmap("assets/vinyl.png").scaled(600, 600, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-        self.vinyl_size = self.original_vinyl.width()
+        # Vinyl Image as Background (cover full screen)
+        self.bg_label = QLabel(self)
+        self.bg_label.setGeometry(0, 0, 1080, 1080)
+        self.bg_movie = QMovie("assets/background.gif")
+        self.bg_movie.setScaledSize(self.bg_label.size())
+        self.bg_label.setMovie(self.bg_movie)
+        self.bg_movie.start()
+        self.bg_label.lower()
+
+        # Vinyl Image (Scale to fit the screen size)
+        self.original_vinyl = QPixmap("assets/vinyl.png").scaled(1080, 1080, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        self.vinyl_size = 1080  # Fit vinyl to screen
         self.angle = 0
 
-        # Vinyl Label
+        # Vinyl Display (center the vinyl)
         self.vinyl_label = QLabel(self)
-        self.vinyl_label.setGeometry((1080-600)//2, (1080-600)//2, 600, 600)
+        self.vinyl_label.setGeometry(0, 0, 1080, 1080)
         self.vinyl_label.setStyleSheet("background: transparent;")
 
-        # Track Info
+        # Song Info (below vinyl animation)
         self.track_label = QLabel("Loading...", self)
         self.track_label.setFont(QFont("Arial", 26, QFont.Weight.Bold))
-        self.track_label.setGeometry(150, 900, 780, 60)
+        self.track_label.setGeometry(100, 950, 880, 60)
         self.track_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.track_label.setStyleSheet("color: white; background: none;")
 
-        # Home Button (centered top)
+        # Home Button (centered at top of the screen)
         self.home_btn = QPushButton(self)
         button_size = 70
         center_x = (1080 - button_size) // 2
-        self.home_btn.setGeometry(center_x, 40, button_size, button_size)
+        self.home_btn.setGeometry(center_x, 50, button_size, button_size)
         if os.path.exists("assets/home_icon.png"):
             self.home_btn.setIcon(QIcon("assets/home_icon.png"))
             self.home_btn.setIconSize(self.home_btn.size())
@@ -108,6 +117,44 @@ class VinylScreen(QWidget):
             }
         """)
         self.home_btn.clicked.connect(parent.show_home)
+
+        # --- Control Buttons Below Vinyl ---
+        # Previous Button
+        self.prev_btn = QPushButton(self)
+        self.prev_btn.setGeometry(100, 1050, 80, 80)
+        if os.path.exists("assets/previous_icon.png"):
+            self.prev_btn.setIcon(QIcon("assets/previous_icon.png"))
+            self.prev_btn.setIconSize(self.prev_btn.size())
+        self.prev_btn.setStyleSheet("border: none; background: transparent;")
+        self.prev_btn.clicked.connect(self.previous_track)
+
+        # Play Button
+        self.play_btn = QPushButton(self)
+        self.play_btn.setGeometry(400, 1050, 80, 80)
+        if os.path.exists("assets/play_icon.png"):
+            self.play_btn.setIcon(QIcon("assets/play_icon.png"))
+            self.play_btn.setIconSize(self.play_btn.size())
+        self.play_btn.setStyleSheet("border: none; background: transparent;")
+        self.play_btn.clicked.connect(self.play_music)
+
+        # Pause Button
+        self.pause_btn = QPushButton(self)
+        self.pause_btn.setGeometry(400, 1050, 80, 80)
+        if os.path.exists("assets/pause_icon.png"):
+            self.pause_btn.setIcon(QIcon("assets/pause_icon.png"))
+            self.pause_btn.setIconSize(self.pause_btn.size())
+        self.pause_btn.setStyleSheet("border: none; background: transparent;")
+        self.pause_btn.clicked.connect(self.pause_music)
+        self.pause_btn.hide()  # Start hidden
+
+        # Next Button
+        self.next_btn = QPushButton(self)
+        self.next_btn.setGeometry(700, 1050, 80, 80)
+        if os.path.exists("assets/next_icon.png"):
+            self.next_btn.setIcon(QIcon("assets/next_icon.png"))
+            self.next_btn.setIconSize(self.next_btn.size())
+        self.next_btn.setStyleSheet("border: none; background: transparent;")
+        self.next_btn.clicked.connect(self.next_track)
 
         # Timers
         self.rotate_timer = QTimer(self)
@@ -121,7 +168,6 @@ class VinylScreen(QWidget):
         play_music()
 
     def update_rotation(self):
-        # Rotate properly around center
         transform = QTransform()
         transform.translate(self.original_vinyl.width() / 2, self.original_vinyl.height() / 2)
         transform.rotate(self.angle)
@@ -153,6 +199,26 @@ class VinylScreen(QWidget):
                 self.track_label.setText(f"{name} - {artist}")
         except:
             self.track_label.setText("No Track Info")
+
+    def play_music(self):
+        from core.spotify_api import play_music
+        play_music()
+        self.play_btn.hide()
+        self.pause_btn.show()
+
+    def pause_music(self):
+        from core.spotify_api import pause_music
+        pause_music()
+        self.pause_btn.hide()
+        self.play_btn.show()
+
+    def next_track(self):
+        from core.spotify_api import next_track
+        next_track()
+
+    def previous_track(self):
+        from core.spotify_api import previous_track
+        previous_track()
 
 # ------------------ Main Controller ------------------
 class CircularUI(QMainWindow):
